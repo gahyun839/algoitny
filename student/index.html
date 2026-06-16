@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>알고리즘 학생 워크스페이스</title>
+    <style>
+        body { font-family: '맑은 고딕', sans-serif; background-color: #f0f8ff; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        h1 { color: #2e8b57; text-align: center; margin-bottom: 5px; }
+        .date-display { text-align: center; font-size: 14px; color: #666; margin-bottom: 20px; font-weight: bold; }
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #2e8b57; }
+        .tab-btn { flex: 1; padding: 10px; text-align: center; background: #e8f5e9; border: none; cursor: pointer; font-size: 16px; font-weight: bold; color: #2e8b57; }
+        .tab-btn.active { background: #2e8b57; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="text"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        textarea { height: 100px; resize: none; }
+        .radio-group { display: flex; gap: 15px; }
+        button { background-color: #4caf50; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; width: 100%; font-weight: bold; margin-bottom: 10px; }
+        button:hover { background-color: #45a049; }
+        .btn-sos { background-color: #d32f2f; }
+        .btn-sos:hover { background-color: #b71c1c; }
+        .box { padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #fafafa; border: 1px solid #ddd; }
+        .hint-popup { display: none; background: #fff9c4; border: 2px solid #fbc02d; padding: 15px; border-radius: 10px; margin-bottom: 20px; font-weight: bold; color: #d32f2f; }
+        .calendar-title { font-size: 14px; font-weight: bold; margin-bottom: 8px; color: #2e8b57; }
+        .calendar-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+        .calendar-cell { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: #e0e0e0; border-radius: 6px; font-size: 11px; font-weight: bold; color: #777; }
+        .calendar-cell.stamped { background: #4caf50; color: white; position: relative; }
+        .calendar-cell.stamped::after { content: "✓"; font-size: 10px; position: absolute; bottom: 1px; right: 2px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="welcomeMessage">학생 워크스페이스</h1>
+        <div id="currentDate" class="date-display"></div>
+        
+        <div class="box">
+            <div id="calendarTitle" class="calendar-title">월간 미션 출석판</div>
+            <div id="attendanceGrid" class="calendar-grid"></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tab1')">알고리즘 학습</button>
+            <button class="tab-btn" onclick="switchTab('tab2')">모둠 활동 기록</button>
+            <button class="tab-btn" onclick="switchTab('tab3')">상호 평가</button>
+        </div>
+
+        <div id="hintPopup" class="hint-popup"></div>
+
+        <div id="tab1" class="tab-content active">
+            <div class="box" style="background: #e8f5e9; border-color: #c8e6c9;">
+                <h3 style="margin-top:0;">오늘의 과제</h3>
+                <p id="studentTask" style="white-space: pre-wrap;">대기 중...</p>
+            </div>
+            <div class="form-group">
+                <label>알고리즘 수정안 및 질문 입력</label>
+                <textarea id="studentAnswer" placeholder="답안을 제출하거나, 모를 경우 '힌트'라는 단어와 함께 필요한 부분을 적어주세요."></textarea>
+            </div>
+            <button id="submitAnsBtn">제출 및 AI 채점/힌트 받기</button>
+            <button id="sosBtn" class="btn-sos">🚨 선생님께 직접 도움 요청하기 (SOS)</button>
+            <div id="ansFeedback" class="box" style="display:none; margin-top: 15px; white-space: pre-wrap; font-weight:bold;"></div>
+        </div>
+
+        <div id="tab2" class="tab-content">
+            <div class="form-group"><label>소속 조</label><select id="groupSelect"><option value="1조">1조</option><option value="2조">2조</option><option value="3조">3조</option><option value="4조">4조</option><option value="5조">5조</option></select></div>
+            <div class="form-group"><label>맡은 역할</label><input type="text" id="roleInput"></div>
+            <div class="form-group">
+                <label>기여도 평가</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="selfScore" value="1"> 1</label><label><input type="radio" name="selfScore" value="2"> 2</label><label><input type="radio" name="selfScore" value="3"> 3</label><label><input type="radio" name="selfScore" value="4"> 4</label><label><input type="radio" name="selfScore" value="5" checked> 5</label>
+                </div>
+            </div>
+            <div class="form-group"><label>구체적 수행 내용</label><textarea id="activityDetails"></textarea></div>
+            <button id="submitActivityBtn">제출</button>
+            <div id="actFeedback" class="box" style="display:none; margin-top: 15px;"></div>
+        </div>
+
+        <div id="tab3" class="tab-content">
+            <div class="form-group"><label>평가 종류</label><select id="evalType"><option value="모둠 내 평가">모둠 내 조원 평가</option><option value="다른 모둠 평가">다른 모둠 전체 평가</option></select></div>
+            <div class="form-group"><label>평가 대상</label><input type="text" id="targetInput"></div>
+            <div class="form-group">
+                <label>평가 점수</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="evalScore" value="1"> 1</label><label><input type="radio" name="evalScore" value="2"> 2</label><label><input type="radio" name="evalScore" value="3"> 3</label><label><input type="radio" name="evalScore" value="4"> 4</label><label><input type="radio" name="evalScore" value="5" checked> 5</label>
+                </div>
+            </div>
+            <div class="form-group"><label>평가 의견</label><textarea id="evalComment"></textarea></div>
+            <button id="submitEvalBtn">제출</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // [필수] 설정값 입력
+        const firebaseConfig = { apiKey: "AIzaSyDkZS6CPZwzj3Tyxe-6PuYCQrgRMl7ioqU", authDomain: "algowebapp-833f6.firebaseapp.com", projectId: "algowebapp-833f6", storageBucket: "algowebapp-833f6.firebasestorage.app", messagingSenderId: "519500102460", appId: "1:519500102460:web:655d740f7612cfe1ce7c39" };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const API_KEY = "AQ.Ab8RN6ISRDlpHZwTRrXmqgmYyil6sH6gfZCJrz3GYNpIBN0A6A"; 
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentName = urlParams.get('name') || '익명학생';
+        document.getElementById('welcomeMessage').innerText = studentName + '의 워크스페이스';
+
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric' });
+        const parts = formatter.formatToParts(now);
+        const kstYear = parseInt(parts.find(p => p.type === 'year').value);
+        const kstMonth = parseInt(parts.find(p => p.type === 'month').value);
+        const kstDay = parseInt(parts.find(p => p.type === 'day').value);
+        const dateStr = `${kstYear}-${String(kstMonth).padStart(2,'0')}-${String(kstDay).padStart(2,'0')}`;
+
+        document.getElementById('currentDate').innerText = `${kstYear}년 ${kstMonth}월 ${kstDay}일 (서울 기준)`;
+        document.getElementById('calendarTitle').innerText = `${kstMonth}월 미션 출석판`;
+        const totalDays = new Date(kstYear, kstMonth, 0).getDate();
+
+        function drawGrid(stampedDays = {}) {
+            const grid = document.getElementById('attendanceGrid');
+            grid.innerHTML = '';
+            for (let d = 1; d <= totalDays; d++) {
+                const cell = document.createElement('div');
+                cell.className = 'calendar-cell' + (stampedDays[d] ? ' stamped' : '');
+                cell.innerText = d;
+                grid.appendChild(cell);
+            }
+        }
+        drawGrid();
+
+        onSnapshot(doc(db, "attendance", `${studentName}_${kstYear}_${kstMonth}`), (docSnap) => { if (docSnap.exists()) drawGrid(docSnap.data()); });
+        onSnapshot(doc(db, "tasks", "currentTask"), (docSnap) => { if (docSnap.exists()) document.getElementById("studentTask").innerText = docSnap.data().content; });
+        
+        // 힌트 팝업 수신 시 알람 효과
+        onSnapshot(doc(db, "hints", studentName), (docSnap) => {
+            if (docSnap.exists() && docSnap.data().content) {
+                const popup = document.getElementById("hintPopup");
+                popup.innerText = "💡 선생님의 개별 힌트: " + docSnap.data().content;
+                popup.style.display = "block";
+            }
+        });
+
+        window.switchTab = function(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        };
+
+        // 선생님 호출 (SOS) 기능
+        document.getElementById('sosBtn').addEventListener('click', async () => {
+            await setDoc(doc(db, "sos", studentName), { active: true, time: Date.now() });
+            alert("선생님께 도움 요청을 보냈습니다. 잠시만 기다려주세요.");
+        });
+
+        // 분기 처리된 AI 평가 로직
+        document.getElementById('submitAnsBtn').addEventListener('click', async () => {
+            const answer = document.getElementById('studentAnswer').value;
+            if (!answer.trim()) return alert("답변을 입력하십시오.");
+            
+            const outDiv = document.getElementById('ansFeedback');
+            outDiv.style.display = 'block';
+            outDiv.innerText = "분석 중...";
+
+            const isHintRequest = answer.includes("힌트");
+            let sysMsg = "";
+            
+            if (isHintRequest) {
+                sysMsg = "학생이 힌트를 요청했습니다. 정답을 주지 말고 스스로 생각할 수 있는 짧은 힌트만 제공하십시오. 사소한 단어 지적은 하지 마십시오.";
+            } else {
+                sysMsg = "학생의 답안을 평가하십시오. 핵심 논리 오류(순서, 조건)가 올바르게 수정되었다면 오직 '[해결]'만, 미흡하다면 오직 '[미해결]'만 출력하십시오. 문제에서 의도하지 않은 사소한 단어 선택(예: '적당히' 등)의 차이는 모두 무시하고 정답으로 인정하십시오.";
+            }
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ systemInstruction: { parts: [{ text: sysMsg }] }, contents: [{ role: "user", parts: [{ text: "학생 입력: " + answer }] }] })
+                });
+                const data = await response.json();
+                let aiText = data.candidates[0].content.parts[0].text.trim();
+                
+                let status = isHintRequest ? "힌트요청" : "미해결";
+                
+                if (!isHintRequest) {
+                    if (aiText.includes("[해결]")) {
+                        status = "해결";
+                        outDiv.innerText = "✅ 해결 완료! 출석판에 도장이 찍혔습니다.";
+                        outDiv.style.color = "#2e8b57";
+                        await setDoc(doc(db, "attendance", `${studentName}_${kstYear}_${kstMonth}`), { [kstDay]: true }, { merge: true });
+                    } else {
+                        outDiv.innerText = "미해결입니다. 힌트가 필요하면 힌트라고 쓰고 어떤 힌트가 필요한지도 써 주세요.";
+                        outDiv.style.color = "#d32f2f";
+                    }
+                } else {
+                    outDiv.innerText = "🤖 AI 힌트: " + aiText;
+                    outDiv.style.color = "#1565c0";
+                }
+
+                await addDoc(collection(db, "answers"), { name: studentName, answer: answer, status: status, date: dateStr, time: Date.now() });
+            } catch (e) { outDiv.innerText = "오류 발생"; }
+        });
+
+        // 모둠 및 평가 제출
+        document.getElementById('submitActivityBtn').addEventListener('click', async () => {
+            const data = { name: studentName, group: document.getElementById('groupSelect').value, role: document.getElementById('roleInput').value, details: document.getElementById('activityDetails').value, scale: document.querySelector('input[name="selfScore"]:checked').value, date: dateStr, time: Date.now() };
+            await addDoc(collection(db, "activities"), data);
+            alert("활동 기록 제출 완료");
+        });
+
+        document.getElementById('submitEvalBtn').addEventListener('click', async () => {
+            const data = { evaluator: studentName, type: document.getElementById('evalType').value, target: document.getElementById('targetInput').value, comment: document.getElementById('evalComment').value, scale: document.querySelector('input[name="evalScore"]:checked').value, date: dateStr, time: Date.now() };
+            await addDoc(collection(db, "evaluations"), data);
+            alert("상호 평가 제출 완료");
+        });
+    </script>
+</body>
+</html>

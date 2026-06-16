@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Algoitny - 로그인</title>
+    <style>
+        body { font-family: '맑은 고딕', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f6f9; margin: 0; }
+        .login-box { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; width: 320px; }
+        
+        /* Algoitny 로고 스타일 */
+        .brand { font-size: 36px; font-weight: bold; color: #1e88e5; margin-bottom: 30px; letter-spacing: -1px; }
+        
+        h2 { font-size: 18px; color: #555; margin-bottom: 10px; }
+        p { font-size: 13px; color: #888; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #1e88e5; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #1565c0; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="brand">Algoitny</div>
+        
+        <h2>알고리즘 클래스</h2>
+        <p>교사용 비밀번호 또는 학생 이름을 입력하세요.</p>
+        
+        <input type="text" id="loginInput" placeholder="입력란">
+        <button onclick="login()">입장하기</button>
+    </div>
+
+    <script>
+        function login() {
+            const input = document.getElementById('loginInput').value.trim();
+            
+            // 교사용 비밀번호 체크
+            if (input === 'teacher123') {
+                window.location.href = 'teacher/index.html';
+            } 
+            // 학생 이름 입력 체크
+            else if (input !== '') {
+                window.location.href = 'student/index.html?name=' + encodeURIComponent(input);
+            } 
+            // 미입력 시
+            else {
+                alert('비밀번호나 이름을 입력해주세요.');
+            }
+        }
+    </script>
+</body>
+</html>
