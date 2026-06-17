@@ -99,6 +99,8 @@
         const firebaseConfig = { apiKey: "AIzaSyDkZS6CPZwzj3Tyxe-6PuYCQrgRMl7ioqU", authDomain: "algowebapp-833f6.firebaseapp.com", projectId: "algowebapp-833f6", storageBucket: "algowebapp-833f6.firebasestorage.app", messagingSenderId: "519500102460", appId: "1:519500102460:web:655d740f7612cfe1ce7c39" };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        
+        // 🚨 여기에 새로 발급받은 안전한 API 키를 넣어주세요!
         const API_KEY = "AQ.Ab8RN6ISRDlpHZwTRrXmqgmYyil6sH6gfZCJrz3GYNpIBN0A6A"; 
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -148,27 +150,32 @@
             event.target.classList.add('active');
         };
 
-        // 선생님 호출 (SOS) 기능
+        // 💡 수정됨: 선생님 호출 (SOS) 기능 - 현재 작성 중인 답변 포함
         document.getElementById('sosBtn').addEventListener('click', async () => {
-            await setDoc(doc(db, "sos", studentName), { active: true, time: Date.now() });
+            const currentAnswer = document.getElementById('studentAnswer').value;
+            
+            await setDoc(doc(db, "sos", studentName), { 
+                active: true, 
+                time: Date.now(),
+                currentAnswer: currentAnswer // 작성 중인 풀이 내용을 데이터베이스로 함께 전송
+            });
             alert("선생님께 도움 요청을 보냈습니다. 잠시만 기다려주세요.");
         });
 
-        // 분기 처리된 AI 평가 로직 (수정된 버전: 연타 방지 및 에러 핸들링 추가)
+        // 분기 처리된 AI 평가 로직
         document.getElementById('submitAnsBtn').addEventListener('click', async function() {
             const answer = document.getElementById('studentAnswer').value;
             if (!answer.trim()) return alert("답변을 입력하십시오.");
             
             const outDiv = document.getElementById('ansFeedback');
-            const submitBtn = document.getElementById('submitAnsBtn'); // 버튼 요소 가져오기
+            const submitBtn = document.getElementById('submitAnsBtn'); 
             
-            // 1. 다중 클릭(연타) 방지: 통신 중일 때는 버튼을 비활성화합니다.
             submitBtn.disabled = true; 
             submitBtn.innerText = "채점 중입니다...";
             
             outDiv.style.display = 'block';
             outDiv.innerText = "분석 중...";
-            outDiv.style.color = "#333"; // 이전 에러 메시지 색상 초기화
+            outDiv.style.color = "#333"; 
 
             const isHintRequest = answer.includes("힌트");
             let sysMsg = "";
@@ -185,7 +192,6 @@
                     body: JSON.stringify({ systemInstruction: { parts: [{ text: sysMsg }] }, contents: [{ role: "user", parts: [{ text: "학생 입력: " + answer }] }] })
                 });
                 
-                // 2. 429 에러(트래픽 초과) 및 503(서버 오류) 명시적 처리
                 if (response.status === 429) {
                     throw new Error("학생들이 동시에 너무 많이 제출했습니다. 1분 뒤에 다시 시도해주세요. (429)");
                 }
@@ -216,11 +222,9 @@
                 await addDoc(collection(db, "answers"), { name: studentName, answer: answer, status: status, date: dateStr, time: Date.now() });
                 
             } catch (e) { 
-                // 3. 에러 발생 시 사용자에게 알려주기
                 outDiv.innerText = `🚨 오류 발생: ${e.message}`; 
                 outDiv.style.color = "#d32f2f";
             } finally {
-                // 4. 통신이 끝나면 무조건 버튼 원상복구
                 submitBtn.disabled = false;
                 submitBtn.innerText = "제출 및 AI 채점/힌트 받기";
             }
