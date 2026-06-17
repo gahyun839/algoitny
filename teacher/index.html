@@ -43,6 +43,7 @@
             <button class="tab-btn" onclick="switchTab('tab2')">모니터링 및 출석</button>
             <button class="tab-btn" onclick="switchTab('tab3')">AI 학급 분석</button>
         </div>
+        
         <div id="tab1" class="tab-content active">
             <div class="box">
                 <input type="text" id="topicInput" placeholder="주제를 입력하십시오.">
@@ -60,6 +61,7 @@
                 <button id="sendBtn" style="background:#e53935; width:100%;">학생에게 전송</button>
             </div>
         </div>
+        
         <div id="tab2" class="tab-content">
             <div id="sosAlert" class="sos-alert"></div>
             <div class="box">
@@ -78,9 +80,10 @@
                     </select>
                     <input type="text" id="searchName" placeholder="이름 검색" oninput="renderMonitorList()">
                 </div>
-                <div id="monitorList">기록 데이터가 없습니다.</div>
+                <div id="monitorList">기록 데이터를 확인 중입니다...</div>
             </div>
         </div>
+        
         <div id="tab3" class="tab-content">
             <button id="analyzeBtn" style="width:100%;">AI 통합 분석 리포트 생성</button>
             <div id="analysisResult" class="box" style="margin-top:15px; white-space:pre-wrap; min-height:100px;">리포트 출력 공간</div>
@@ -92,21 +95,27 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+        // Firebase 설정
         const firebaseConfig = { apiKey: "AIzaSyDkZS6CPZwzj3Tyxe-6PuYCQrgRMl7ioqU", authDomain: "algowebapp-833f6.firebaseapp.com", projectId: "algowebapp-833f6", storageBucket: "algowebapp-833f6.firebasestorage.app", messagingSenderId: "519500102460", appId: "1:519500102460:web:655d740f7612cfe1ce7c39" };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const API_KEY = "AQ.Ab8RN6ISRDlpHZwTRrXmqgmYyil6sH6gfZCJrz3GYNpIBN0A6A"; 
+        
+        // 여기에 API 키를 넣으세요!
+        const API_KEY = "AQ.Ab8RN6ISRDlpHZwTRrXmqgmYyil6sH6gfZCJrz3GYNpIBN0A6A";
 
+        // 날짜 설정
         const now = new Date();
         const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric' });
         const parts = formatter.formatToParts(now);
         const kstYear = parseInt(parts.find(p => p.type === 'year').value);
         const kstMonth = parseInt(parts.find(p => p.type === 'month').value);
         const todayStr = `${kstYear}-${String(kstMonth).padStart(2,'0')}-${String(parts.find(p => p.type === 'day').value).padStart(2,'0')}`;
+        const totalDays = new Date(kstYear, kstMonth, 0).getDate();
         
         document.getElementById('dateFilter').value = todayStr;
         document.getElementById('currentDate').innerText = `${kstYear}년 ${kstMonth}월 ${parts.find(p => p.type === 'day').value}일 (서울 기준)`;
 
+        // 탭 전환 기능
         window.switchTab = function(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -114,39 +123,207 @@
             event.target.classList.add('active');
         };
 
-        // 데이터 수집용 전역 변수
+        // ==========================================
+        // 1. 학생 기록 데이터 실시간 수집 및 화면 렌더링
+        // ==========================================
         let rawAnswers = []; let rawActivities = []; let rawEvals = [];
 
-        onSnapshot(collection(db, "answers"), (snap) => { rawAnswers = []; snap.forEach(d => { let data = d.data(); data.id = d.id; rawAnswers.push(data); }); });
-        onSnapshot(collection(db, "activities"), (snap) => { rawActivities = []; snap.forEach(d => rawActivities.push(d.data())); });
-        onSnapshot(collection(db, "evaluations"), (snap) => { rawEvals = []; snap.forEach(d => rawEvals.push(d.data())); });
+        onSnapshot(collection(db, "answers"), (snap) => { rawAnswers = []; snap.forEach(d => { let data = d.data(); data.id = d.id; rawAnswers.push(data); }); renderMonitorList(); });
+        onSnapshot(collection(db, "activities"), (snap) => { rawActivities = []; snap.forEach(d => rawActivities.push(d.data())); renderMonitorList(); });
+        onSnapshot(collection(db, "evaluations"), (snap) => { rawEvals = []; snap.forEach(d => rawEvals.push(d.data())); renderMonitorList(); });
 
-        // AI 통합 분석 리포트 생성 (최종 수정본)
-        document.getElementById('analyzeBtn').addEventListener('click', async () => {
-            const resDiv = document.getElementById('analysisResult');
-            const total = rawAnswers.length + rawActivities.length + rawEvals.length;
-            resDiv.innerText = `분석 준비 중... (총 데이터 ${total}건 확인)`;
+        window.renderMonitorList = function() {
+            const listDiv = document.getElementById('monitorList');
+            const dFilter = document.getElementById('dateFilter').value;
+            const fType = document.getElementById('filterType').value;
+            const sName = document.getElementById('searchName').value.trim().toLowerCase();
 
-            if (total === 0) {
-                resDiv.innerText = "분석할 데이터가 없습니다.";
+            let combined = [];
+            if (fType === 'all' || fType === 'answer') combined = combined.concat(rawAnswers.map(d => ({...d, _type: '풀이'})));
+            if (fType === 'all' || fType === 'activity') combined = combined.concat(rawActivities.map(d => ({...d, _type: '활동'})));
+            if (fType === 'all' || fType === 'evaluation') combined = combined.concat(rawEvals.map(d => ({...d, _type: '평가', name: d.evaluator}))); 
+
+            let filtered = combined.filter(item => {
+                const matchDate = !dFilter || item.date === dFilter;
+                const matchName = !sName || (item.name && item.name.toLowerCase().includes(sName)) || (item.target && item.target.toLowerCase().includes(sName));
+                return matchDate && matchName;
+            });
+
+            filtered.sort((a, b) => b.time - a.time);
+
+            if (filtered.length === 0) {
+                listDiv.innerHTML = '<p style="padding: 15px; color: #888; text-align: center;">해당 조건에 맞는 기록이 없습니다.</p>';
                 return;
             }
 
+            let html = '';
+            filtered.forEach(item => {
+                const timeStr = new Date(item.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                const title = `[${item._type}] ${item.name} (${timeStr})`;
+                let content = '';
+
+                if (item._type === '풀이') {
+                    const statusColor = item.status === '해결' ? '#2e8b57' : (item.status === '미해결' ? '#d32f2f' : '#1565c0');
+                    content = `<b>상태:</b> <span style="color:${statusColor}; font-weight:bold;">${item.status}</span><br><br><b>제출 답안:</b><br><span style="white-space:pre-wrap;">${item.answer}</span>`;
+                } else if (item._type === '활동') {
+                    content = `<b>소속 / 역할:</b> ${item.group} / ${item.role}<br><b>자체 기여도:</b> ${item.scale}점<br><br><b>활동 내용:</b><br><span style="white-space:pre-wrap;">${item.details}</span>`;
+                } else if (item._type === '평가') {
+                    content = `<b>평가 종류:</b> ${item.type}<br><b>평가 대상:</b> ${item.target}<br><b>부여 점수:</b> ${item.scale}점<br><br><b>평가 의견:</b><br><span style="white-space:pre-wrap;">${item.comment}</span>`;
+                }
+
+                html += `<details class="item-details"><summary>${title}</summary><div style="padding:15px; font-size:14px; background:#fff; line-height:1.6;">${content}</div></details>`;
+            });
+
+            listDiv.innerHTML = html;
+        };
+
+        // ==========================================
+        // 2. 출석판 실시간 생성 로직
+        // ==========================================
+        onSnapshot(collection(db, "attendance"), (snapshot) => {
+            const board = document.getElementById('teacherAttendanceBoard');
+            board.innerHTML = ''; 
+
+            if (snapshot.empty) {
+                board.innerHTML = '<p style="font-size: 13px; color: #888; padding: 10px 0;">아직 출석한 학생 데이터가 없습니다.</p>';
+                return;
+            }
+
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                const docId = docSnap.id; 
+                const sName = docId.split('_')[0]; 
+
+                const row = document.createElement('div');
+                row.className = 'attendance-row';
+
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'attendance-name';
+                nameDiv.innerText = sName;
+                row.appendChild(nameDiv);
+
+                const grid = document.createElement('div');
+                grid.className = 'calendar-grid';
+
+                for (let d = 1; d <= totalDays; d++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'calendar-cell' + (data[d] ? ' stamped' : '');
+                    cell.innerText = d;
+                    grid.appendChild(cell);
+                }
+
+                row.appendChild(grid);
+                board.appendChild(row);
+            });
+        });
+
+        // ==========================================
+        // 3. AI 통합 분석 리포트
+        // ==========================================
+        document.getElementById('analyzeBtn').addEventListener('click', async () => {
+            const resDiv = document.getElementById('analysisResult');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+
+            // 💡 수정 1: 모둠활동과 상호평가는 제외하고, 오직 '학생 답변(answers)'만 가져옵니다.
+            const recentAnswers = rawAnswers.slice(-30);
+
+            if (recentAnswers.length === 0) return resDiv.innerText = "분석할 학생 풀이 데이터가 없습니다.";
+
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerText = "AI가 학생 풀이를 분석 중입니다...";
+            resDiv.innerText = `분석 중... (최신 학생 풀이 ${recentAnswers.length}건 기준)`;
+            resDiv.style.color = "#333"; 
+
             try {
-                const promptData = `학생 답변: ${JSON.stringify(rawAnswers)}, 모둠활동: ${JSON.stringify(rawActivities)}, 상호평가: ${JSON.stringify(rawEvals)}`;
+                // 💡 수정 2: AI가 읽기 편하고 용량이 작아지도록 불필요한 메타데이터(시간, 고유ID 등)를 날리고 알맹이만 조립합니다.
+                const simplifiedAnswers = recentAnswers.map(ans => ({
+                    학생이름: ans.name,
+                    채점결과: ans.status,
+                    제출답안: ans.answer
+                }));
+
+                // AI에게 내릴 명령과 정제된 데이터를 통짜 텍스트로 결합
+                const promptText = `당신은 교사 보조 알고리즘 교육 전문가입니다. 아래 제공된 학생들의 알고리즘 문제 풀이 데이터를 바탕으로, 학생들이 주로 어떤 부분에서 논리적 오류를 범하고 있는지 공통된 패턴을 분석하고, 다음 수업에서 어떤 부분을 중점적으로 지도하면 좋을지 교사를 위한 요약 보고서를 작성해 주십시오.\n\n[학생 풀이 데이터]\n${JSON.stringify(simplifiedAnswers, null, 2)}`;
+
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        systemInstruction: { parts: [{ text: "교사 보조 데이터 분석가로서 학생들의 해결 유무 비율, 공통적인 알고리즘 논리 오류 패턴, 상호 평가 평정 점수 추이를 요약하고 개선안을 보고서 형태로 도출하십시오." }] },
-                        contents: [{ role: "user", parts: [{ text: promptData }] }]
+                        contents: [{ role: "user", parts: [{ text: promptText }] }]
                     })
                 });
+
+                if (response.status === 503) throw new Error("구글 AI 서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 버튼을 눌러주세요. (503)");
+                if (response.status === 400) throw new Error("데이터 전송 형식이 잘못되었습니다. (400)");
+                if (response.status === 429) throw new Error("API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요. (429)");
+                if (!response.ok) throw new Error(`서버 오류가 발생했습니다. (상태 코드: ${response.status})`);
+
                 const data = await response.json();
                 resDiv.innerText = data.candidates[0].content.parts[0].text;
-            } catch (e) { resDiv.innerText = "분석 오류: " + e.message; }
+            } catch (e) { 
+                resDiv.innerText = `🚨 분석 오류: ${e.message}`; 
+                resDiv.style.color = "#d32f2f";
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerText = "AI 통합 분석 리포트 생성";
+            }
         });
-        
-        // ... (나머지 문제 생성 및 모니터링 함수들은 이전과 동일하게 유지)
+
+        // ==========================================
+        // 4. 문제 생성 및 과제 전송 기능
+        // ==========================================
+        window.generateProblem = async function() {
+            const topic = document.getElementById('topicInput').value;
+            const difficulty = document.getElementById('difficultySelect').value;
+            const resultText = document.getElementById('resultText');
+            
+            if (!topic.trim()) return alert("출제할 주제를 입력하십시오.");
+            
+            resultText.innerText = "AI가 문제를 출제하고 있습니다...";
+            document.getElementById('copyBtn').style.display = 'none';
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: "user", parts: [{ text: `주제: ${topic}, 난이도: ${difficulty}. 이 조건에 맞는 알고리즘 교육용 문제를 1개 출제해 줘.` }] }]
+                    })
+                });
+                if (!response.ok) throw new Error("API 요청 실패");
+                const data = await response.json();
+                resultText.innerText = data.candidates[0].content.parts[0].text;
+                document.getElementById('copyBtn').style.display = 'block';
+            } catch (e) {
+                resultText.innerText = "문제 생성 중 오류가 발생했습니다: " + e.message;
+            }
+        };
+
+        window.copyToTransfer = function() {
+            const problemText = document.getElementById('resultText').innerText;
+            document.getElementById('taskToStudent').value = problemText;
+            alert("문제 내용이 하단 전송창으로 복사되었습니다.");
+        };
+
+        document.getElementById('sendBtn').addEventListener('click', async () => {
+            const taskText = document.getElementById('taskToStudent').value;
+            if (!taskText.trim()) return alert("학생에게 전송할 내용을 입력하세요.");
+            try {
+                await setDoc(doc(db, "tasks", "currentTask"), { content: taskText });
+                alert("과제가 학생들에게 성공적으로 전송되었습니다!");
+            } catch (e) {
+                alert("전송 실패: " + e.message);
+            }
+        });
+
+        // ==========================================
+        // 5. 전체 데이터 초기화 기능
+        // ==========================================
+        window.resetAllData = function() {
+            if (confirm("⚠️ 정말로 학급의 모든 데이터를 초기화하시겠습니까? 이 작업은 복구할 수 없습니다.")) {
+                alert("초기화 기능이 호출되었습니다. (Firebase 콘솔에서 직접 삭제를 권장합니다.)");
+            }
+        };
+
     </script>
 </body>
 </html>

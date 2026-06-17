@@ -154,14 +154,21 @@
             alert("선생님께 도움 요청을 보냈습니다. 잠시만 기다려주세요.");
         });
 
-        // 분기 처리된 AI 평가 로직
-        document.getElementById('submitAnsBtn').addEventListener('click', async () => {
+        // 분기 처리된 AI 평가 로직 (수정된 버전: 연타 방지 및 에러 핸들링 추가)
+        document.getElementById('submitAnsBtn').addEventListener('click', async function() {
             const answer = document.getElementById('studentAnswer').value;
             if (!answer.trim()) return alert("답변을 입력하십시오.");
             
             const outDiv = document.getElementById('ansFeedback');
+            const submitBtn = document.getElementById('submitAnsBtn'); // 버튼 요소 가져오기
+            
+            // 1. 다중 클릭(연타) 방지: 통신 중일 때는 버튼을 비활성화합니다.
+            submitBtn.disabled = true; 
+            submitBtn.innerText = "채점 중입니다...";
+            
             outDiv.style.display = 'block';
             outDiv.innerText = "분석 중...";
+            outDiv.style.color = "#333"; // 이전 에러 메시지 색상 초기화
 
             const isHintRequest = answer.includes("힌트");
             let sysMsg = "";
@@ -177,6 +184,15 @@
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ systemInstruction: { parts: [{ text: sysMsg }] }, contents: [{ role: "user", parts: [{ text: "학생 입력: " + answer }] }] })
                 });
+                
+                // 2. 429 에러(트래픽 초과) 및 503(서버 오류) 명시적 처리
+                if (response.status === 429) {
+                    throw new Error("학생들이 동시에 너무 많이 제출했습니다. 1분 뒤에 다시 시도해주세요. (429)");
+                }
+                if (!response.ok) {
+                    throw new Error("서버에 일시적인 문제가 생겼습니다. (503)");
+                }
+
                 const data = await response.json();
                 let aiText = data.candidates[0].content.parts[0].text.trim();
                 
@@ -198,9 +214,18 @@
                 }
 
                 await addDoc(collection(db, "answers"), { name: studentName, answer: answer, status: status, date: dateStr, time: Date.now() });
-            } catch (e) { outDiv.innerText = "오류 발생"; }
+                
+            } catch (e) { 
+                // 3. 에러 발생 시 사용자에게 알려주기
+                outDiv.innerText = `🚨 오류 발생: ${e.message}`; 
+                outDiv.style.color = "#d32f2f";
+            } finally {
+                // 4. 통신이 끝나면 무조건 버튼 원상복구
+                submitBtn.disabled = false;
+                submitBtn.innerText = "제출 및 AI 채점/힌트 받기";
+            }
         });
-
+        
         // 모둠 및 평가 제출
         document.getElementById('submitActivityBtn').addEventListener('click', async () => {
             const data = { name: studentName, group: document.getElementById('groupSelect').value, role: document.getElementById('roleInput').value, details: document.getElementById('activityDetails').value, scale: document.querySelector('input[name="selfScore"]:checked').value, date: dateStr, time: Date.now() };
